@@ -1,9 +1,6 @@
 #!/usr/bin/python3
 #coding:utf-8
 
-
-import sys
-import os
 import toml
 
 class HppGenerator:
@@ -11,22 +8,29 @@ class HppGenerator:
 
     def __init__(self, indent:str):
         self.indent = indent
-        self.header:str
+        self.preprocessor:str
         self.namespace_begin:str
         self.namespace_end:str
         self.class_body:str
 
     def concatenate(self) -> str:
-        full_text  = self.header + '\n'
+        full_text  = self.preprocessor + '\n'
         full_text += self.namespace_begin + '\n'
         full_text += self.class_body + '\n'
         full_text += self.namespace_end + '\n'
         return full_text
 
-    def generateHeader(self, need_ids_hpp:bool):
-        self.header = '#pragma once\n'
+    def generate(self, data_type_name:str, fields:dict) -> str:
+        ids_hpp_is_required = self.generateClassBody(data_type_name, fields)
+        self.generatePreProcessor(ids_hpp_is_required)
+        self.generateNameSpaceBegin()
+        self.generateNameSpaceEnd()
+        return self.concatenate()
+
+    def generatePreProcessor(self, need_ids_hpp:bool):
+        self.preprocessor = '#pragma once\n'
         if need_ids_hpp:
-            self.header += '#include "IDs.hpp"\n'
+            self.preprocessor += '#include "IDs.hpp"\n'
 
     def generateNameSpaceBegin(self):
         self.namespace_begin  = 'namespace kanji {\n'
@@ -36,12 +40,16 @@ class HppGenerator:
         self.namespace_end  = '}\n'
         self.namespace_end += '}\n'
 
-    def generateClassBody(self, data_type_name:str, fields:dict):
+    # class の中身をさらうついでにIDs.hppのincludeが必要を調べて返す
+    def generateClassBody(self, data_type_name:str, fields:dict) -> bool:
+        ids_hpp_is_required = False
         getter = ''
         field = ''
         ctor_declaration = self.indent + 'Master%s(' % data_type_name
         ctor_definition = ''
         for key in fields:
+            if not ids_hpp_is_required and fields[key].startswith('ID:'):
+                ids_hpp_is_required = True
             field_type, return_type = self.read_type(fields[key])
             getter += self.indent + '%s %s() const { return m_%s; }\n' % (return_type, key, key)
             field  += self.indent + '%s m_%s;\n' % (field_type, key)
@@ -52,6 +60,7 @@ class HppGenerator:
         ctor_definition = ctor_definition.rstrip(',\n')
         ctor_definition += ' {}\n'
         self.generateClassBodyImpl(data_type_name, getter, field, ctor_declaration + ctor_definition)
+        return ids_hpp_is_required
 
     def generateClassBodyImpl(self, data_type_name:str, getter:str, field:str, constructor:str):
         self.class_body  = 'class Master%s {\n' % data_type_name
@@ -83,8 +92,7 @@ class HppGenerator:
 class MasterDataTypeInfo:
     INDENT = '    '
 
-    def __init__(self, toml:dict, directory:str):
-        self.directory = directory
+    def __init__(self, toml:dict):
         self.data_type_name = toml['data_type_name']
         self.fields = toml['field']
 
@@ -94,22 +102,17 @@ class MasterDataTypeInfo:
             print('%s %s' % (self.fields[key], key))
         print('// --------------------')
 
+    def createHpp(self, directory:str):
+        hpp_generator = HppGenerator('    ')
+        full_text = hpp_generator.generate(self.data_type_name, self.fields)
+        self.output(directory, self.data_type_name + ".hpp", full_text)
+
     def output(self, directory:str, filename:str, text:str):
         file_path = directory + '/' + filename
         print('create file:%s' % file_path)
-        print(text)
-        # f = open(file_path,'w') # なければ生成/あれば上書き
-        # f.write(text)
-        # f.close()
-
-    def createHpp(self):
-        hpp_generator = HppGenerator('    ')
-        hpp_generator.generateHeader(False)
-        hpp_generator.generateNameSpaceBegin()
-        hpp_generator.generateClassBody(self.data_type_name, self.fields)
-        hpp_generator.generateNameSpaceEnd()
-        full_text = hpp_generator.concatenate()
-        self.output(self.directory, self.data_type_name + ".hpp", full_text)
+        f = open(file_path,'w') # なければ生成/あれば上書き
+        f.write(text)
+        f.close()
 
 
 class MasterDataTypeManager:
@@ -129,11 +132,16 @@ class MasterDataTypeManager:
         for key in self.dict_toml['masterdata']:
             self.dict_info[key] = dict()
             for md_toml in self.dict_toml['masterdata'][key].values():
-                md = MasterDataTypeInfo(md_toml, key)
+                md = MasterDataTypeInfo(md_toml)
                 self.dict_info[key][md.data_type_name] = md
+
+    def at(self, type_name:str, keys:tuple) -> MasterDataTypeInfo:
+        dict = self.dict_info
+        for key in keys:
+            dict = dict[key]
+        return dict[type_name]
 
 if __name__ == "__main__":
     mgr = MasterDataTypeManager()
-    mgr.read()
 
 
