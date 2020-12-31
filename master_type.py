@@ -147,10 +147,6 @@ class MasterDataTypeManager:
 
     def at(self, type_name:str, key:str) -> MasterDataTypeInfo:
         return self.dict_info[key][type_name]
-        # dict = self.dict_info
-        # for key in keys:
-        #     dict = dict[key]
-        # return dict[type_name]
 
 if __name__ == "__main__":
     mgr = MasterDataTypeManager()
