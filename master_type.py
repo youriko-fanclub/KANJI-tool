@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import toml
+from repository_path import KanjiPath
 
 class HppGenerator:
     TYPE_DICT = { 'string': 's3d::String'}
@@ -112,31 +113,29 @@ class MasterDataTypeInfo:
             print('%s %s' % (self.fields[key], key))
         print('// --------------------')
 
-    def createHpp(self, directory:Path):
+    def create_hpp(self, directory:Path):
         hpp_generator = HppGenerator('    ')
         full_text = hpp_generator.generate(self.data_type_name, self.fields)
         self.output(directory, self.data_type_name + ".hpp", full_text)
 
     def output(self, directory:Path, filename:str, text:str):
         file_path = directory / filename
-        print('create file:%s' % file_path)
+        print('create file:%s' % file_path.relative_to(KanjiPath.absolute('asset')))
         f = open(file_path,'w') # なければ生成/あれば上書き
         f.write(text)
         f.close()
 
 
 class MasterDataTypeManager:
-    MASTER_DATA_DIRECTORY = 'KANJI-asset/schema/master/'
-    MASTER_DATA_TOML = 'masterdata.toml'
-
     def __init__(self):
-        self.dict_toml = self.load()
+        self.dict_toml = None
         self.dict_info = dict()
+        self.load()
         self.read()
 
     def load(self):
-        filepath = MasterDataTypeManager.MASTER_DATA_DIRECTORY + MasterDataTypeManager.MASTER_DATA_TOML
-        return toml.load(open(filepath))
+        with open(KanjiPath.absolute('md_toml')) as f:
+            self.dict_toml = toml.load(f)
 
     def read(self):
         for key in self.dict_toml['masterdata']:
@@ -148,7 +147,13 @@ class MasterDataTypeManager:
     def at(self, type_name:str, key:str) -> MasterDataTypeInfo:
         return self.dict_info[key][type_name]
 
+    def create_hpp(self, path_dst:Path):
+        for key in self.dict_info:
+            path_dst = path_dst / key
+            for value in self.dict_info[key].values():
+                value.create_hpp(path_dst)
+
 if __name__ == "__main__":
     mgr = MasterDataTypeManager()
-
+    mgr.create_hpp(KanjiPath.absolute('mdheader'))
 
