@@ -2,12 +2,14 @@
 #coding:utf-8
 
 from pathlib import Path
+import os
+import shutil
 import toml
 from repository_path import KanjiPath
 from logging import getLogger, basicConfig, DEBUG
 logger = getLogger(__name__)
 
-class HppGenerator:
+class HppGeneratorBase:
     def __init__(self, indent:str):
         self.indent = indent
         self.build_info:str
@@ -19,7 +21,7 @@ class HppGenerator:
     def generate(self, data_type_name:str, fields:dict) -> str:
         self.generate_class_body(data_type_name, fields)
         self.generate_build_info(data_type_name)
-        self.generate_preprocessor(fields)
+        self.generate_preprocessor(data_type_name, fields)
         self.generate_namespace_begin()
         self.generate_namespace_end()
         return self.concatenate()
@@ -35,14 +37,8 @@ class HppGenerator:
     def generate_build_info(self, data_type_name:str):
         self.build_info = '// This file is generated from %s.toml\n' % data_type_name
 
-    def generate_preprocessor(self, fields:dict):
-        need_ids_hpp = False
-        for field in fields.values():
-            if field.is_id:
-                need_ids_hpp = True
-        self.preprocessor = '#pragma once\n'
-        if need_ids_hpp:
-            self.preprocessor += '#include "IDs.hpp"\n'
+    def generate_preprocessor(self, data_type_name:str, fields:dict):
+        pass
 
     def generate_namespace_begin(self):
         self.namespace_begin  = 'namespace kanji {\n'
@@ -51,6 +47,24 @@ class HppGenerator:
     def generate_namespace_end(self):
         self.namespace_end  = '}\n'
         self.namespace_end += '}\n'
+
+    def generate_class_body(self, data_type_name:str, field_dict:dict):
+        pass
+
+    def to_camel_case(self, snake_str:str):
+        first, *others = snake_str.split('_')
+        return ''.join([first.lower(), *map(str.title, others)])
+
+
+class DataHppGenerator(HppGeneratorBase):
+    def generate_preprocessor(self, data_type_name:str, fields:dict):
+        need_ids_hpp = False
+        for field in fields.values():
+            if field.is_id:
+                need_ids_hpp = True
+        self.preprocessor = '#pragma once\n'
+        if need_ids_hpp:
+            self.preprocessor += '#include "IDs.hpp"\n'
 
     def generate_class_body(self, data_type_name:str, field_dict:dict):
         getters = ''
@@ -83,9 +97,37 @@ class HppGenerator:
         self.class_body += constructor
         self.class_body += '};\n'
 
-    def to_camel_case(self, snake_str:str):
-        first, *others = snake_str.split('_')
-        return ''.join([first.lower(), *map(str.title, others)])
+
+class RepositoryHppGenerator(HppGeneratorBase):
+    def generate_preprocessor(self, data_type_name:str, fields:dict):
+        need_ids_hpp = False
+        for field in fields.values():
+            if field.is_id:
+                need_ids_hpp = True
+        self.preprocessor  = '#pragma once\n'
+        self.preprocessor += '#include "Singleton.hpp"\n'
+        self.preprocessor += '#include "MasterDataRepository.hpp"\n'
+        self.preprocessor += '#include "Master%s.hpp"\n' % data_type_name
+        if need_ids_hpp:
+            self.preprocessor += '#include "IDs.hpp"\n'
+
+    def generate_class_body(self, data_type_name:str, field_dict:dict):
+        primary_key_type = None
+        for field in field_dict.values():
+            if field.is_primary_key:
+                if field.is_id:
+                    primary_key_type = field.type_name + 'ID'
+                else:
+                    primary_key_type = field.type_name
+        self.class_body  = 'class Master%sRepository :\n' % data_type_name
+        self.class_body += self.indent + 'public dx::md::MasterDataRepository<%s, %s>,\n' % (primary_key_type, data_type_name)
+        self.class_body += self.indent + 'public dx::cmp::Singleton<Master%sRepository> {\n' % data_type_name
+        self.class_body += 'protected function: // protected function\n'
+        self.class_body += self.indent + 'void initialize();\n'
+        self.class_body += 'public: // ctor\n'
+        self.class_body += self.indent + 'Master%sRepository() { initialize(); }\n' % data_type_name
+        self.class_body += '};\n'
+
 
 class MDField:
     TYPE_DICT = { 'string': 's3d::String'}
@@ -153,13 +195,20 @@ class MasterDataTypeInfo:
             print('%s%s %s%s' % (primary_icon, field.type_name, field.name, constraint))
         print('// --------------------')
 
-    def create_hpp(self, directory:Path):
-        hpp_generator = HppGenerator('    ')
-        full_text = hpp_generator.generate(self.data_type_name, self.fields)
-        self.output(directory, self.data_type_name + ".hpp", full_text)
+    def create_hpp(self, path:Path, key:str):
+        indent = '    '
+        # MasterHoge.hpp
+        data_hpp_generator = DataHppGenerator(indent)
+        data_full_text = data_hpp_generator.generate(self.data_type_name, self.fields)
+        self.output(path / 'class' / key, self.data_type_name + ".hpp", data_full_text)
+        # MasterHogeRepository.hpp
+        repo_hpp_generator = RepositoryHppGenerator(indent)
+        repo_full_text = repo_hpp_generator.generate(self.data_type_name, self.fields)
+        self.output(path / 'repository' / key, self.data_type_name + "Repository.hpp", repo_full_text)
 
-    def output(self, directory:Path, filename:str, text:str):
-        file_path = directory / filename
+    def output(self, path:Path, filename:str, text:str):
+        os.makedirs(path, exist_ok=True)
+        file_path = path / filename
         logger.info('create file: %s' % file_path.relative_to(KanjiPath.absolute('md_header')))
         with open(file_path,'w') as f:
             f.write(text)
@@ -188,12 +237,14 @@ class MasterDataTypeManager:
 
     def create_hpp(self, path_dst:Path):
         for key in self.dict_info:
-            path_dst = path_dst / key
             for value in self.dict_info[key].values():
-                value.create_hpp(path_dst)
+                value.create_hpp(path_dst, key)
 
 if __name__ == "__main__":
     basicConfig(level=DEBUG)
+    dest_dir = KanjiPath.absolute('md_header')
+    if os.path.isdir(dest_dir):
+        shutil.rmtree(dest_dir)
     mgr = MasterDataTypeManager()
-    mgr.create_hpp(KanjiPath.absolute('md_header'))
+    mgr.create_hpp(dest_dir)
 
