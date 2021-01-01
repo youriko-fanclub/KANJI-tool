@@ -126,7 +126,7 @@ class MasterDataTypeInfo:
         self.primary_key = None
         self.fields = self.read_fields(toml['field'])
 
-    def read_fields(self, field_toml:dict):
+    def read_fields(self, field_toml:dict) -> dict:
         fields = dict()
         for name, type_attribute in field_toml.items():
             field = MDField(name, type_attribute)
@@ -160,10 +160,9 @@ class MasterDataTypeInfo:
 
     def output(self, directory:Path, filename:str, text:str):
         file_path = directory / filename
-        logger.info('create file:%s' % file_path.relative_to(KanjiPath.absolute('asset')))
-        f = open(file_path,'w') # なければ生成/あれば上書き
-        f.write(text)
-        f.close()
+        logger.info('create file: %s' % file_path.relative_to(KanjiPath.absolute('md_header')))
+        with open(file_path,'w') as f:
+            f.write(text)
 
 
 class MasterDataTypeManager:
@@ -192,10 +191,9 @@ class MasterDataTypeManager:
             path_dst = path_dst / key
             for value in self.dict_info[key].values():
                 value.create_hpp(path_dst)
-                value.log()
 
 if __name__ == "__main__":
     basicConfig(level=DEBUG)
     mgr = MasterDataTypeManager()
-    mgr.create_hpp(KanjiPath.absolute('mdheader'))
+    mgr.create_hpp(KanjiPath.absolute('md_header'))
 
