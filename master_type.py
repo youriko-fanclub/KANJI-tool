@@ -17,11 +17,11 @@ class HppGenerator:
         self.class_body:str
 
     def generate(self, data_type_name:str, fields:dict) -> str:
-        self.generateClassBody(data_type_name, fields)
-        self.generateBuildInfo(data_type_name)
-        self.generatePreProcessor(fields)
-        self.generateNameSpaceBegin()
-        self.generateNameSpaceEnd()
+        self.generate_class_body(data_type_name, fields)
+        self.generate_build_info(data_type_name)
+        self.generate_preprocessor(fields)
+        self.generate_namespace_begin()
+        self.generate_namespace_end()
         return self.concatenate()
 
     def concatenate(self) -> str:
@@ -32,10 +32,10 @@ class HppGenerator:
         full_text += self.namespace_end + '\n'
         return full_text
 
-    def generateBuildInfo(self, data_type_name:str):
+    def generate_build_info(self, data_type_name:str):
         self.build_info = '// This file is generated from %s.toml\n' % data_type_name
 
-    def generatePreProcessor(self, fields:dict):
+    def generate_preprocessor(self, fields:dict):
         need_ids_hpp = False
         for field in fields.values():
             if field.is_id:
@@ -44,15 +44,15 @@ class HppGenerator:
         if need_ids_hpp:
             self.preprocessor += '#include "IDs.hpp"\n'
 
-    def generateNameSpaceBegin(self):
+    def generate_namespace_begin(self):
         self.namespace_begin  = 'namespace kanji {\n'
         self.namespace_begin += 'namespace md {\n'
 
-    def generateNameSpaceEnd(self):
+    def generate_namespace_end(self):
         self.namespace_end  = '}\n'
         self.namespace_end += '}\n'
 
-    def generateClassBody(self, data_type_name:str, field_dict:dict):
+    def generate_class_body(self, data_type_name:str, field_dict:dict):
         getters = ''
         fields = ''
         ctor_declaration = self.indent + 'Master%s(' % data_type_name
