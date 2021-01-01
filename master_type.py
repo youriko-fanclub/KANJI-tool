@@ -1,12 +1,8 @@
 #!/usr/bin/python3
 #coding:utf-8
 
-from pathlib import Path
-import os
-import shutil
 import toml
 from repository_path import KanjiPath
-from cpp_source_generator import DataHppGenerator, RepositoryHppGenerator
 from logging import getLogger, basicConfig, DEBUG
 logger = getLogger(__name__)
 
