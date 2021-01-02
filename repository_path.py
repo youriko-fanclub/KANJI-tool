@@ -5,6 +5,7 @@ from pathlib import Path
 import toml
 import pprint
 
+# path.tomlに定義したパスを簡単に呼び出せるように
 class KanjiPath:
     root = Path()
     pathes = dict()

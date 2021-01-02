@@ -11,6 +11,8 @@ class CppSourceGeneratorBase:
         self.namespace_end:str
         self.class_body:str
 
+    # 5つに分けて生成し、最後に結合する
+    # 分けた5つのうちファイルごとに異なる部分はサブクラスでオーバーライド
     def generate(self, data_type_name:str, fields:dict) -> str:
         self.generate_class_body(data_type_name, fields)
         self.generate_build_info(data_type_name)
@@ -130,9 +132,8 @@ class RepositoryCppGenerator(CppSourceGeneratorBase):
         for field in field_dict.values():
             if field.is_primary_key:
                 primary_key = field
-        sub_directories = ('kanji', )
         self.class_body  = 'void Master%sRepository::initialize() {\n' % data_type_name
-        self.class_body += self.indent + 'const auto& param = dx::cmp::HotReloadManager::createParamsWithLoad(U"masterdata/%s/%s");\n' % ('/'.join(sub_directories), data_type_name)
+        self.class_body += self.indent + 'const auto& param = dx::cmp::HotReloadManager::createParamsWithLoad(U"%s", true, true);\n' % (data_type_name)
         self.class_body += self.indent + 'const s3d::String key = U"masterdata";\n'
         self.class_body += self.indent + 's3d::TOMLTableView table = param->getTOML(key).tableView();\n'
         self.class_body += self.indent + 'for (const s3d::TOMLTableMember& table_member : table) {\n'

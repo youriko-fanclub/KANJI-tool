@@ -4,17 +4,17 @@
 from pathlib import Path
 import toml
 from repository_path import KanjiPath
-from master_type import MasterDataTypeManager, MasterDataTypeInfo
+from master_type import MDTypeManager, MDTypeInfo
 from logging import getLogger, basicConfig, DEBUG, INFO
 logger = getLogger(__name__)
 
 
-class MasterDataValidator:
+class MDValidator:
     def __init__(self):
         self.root_path = KanjiPath.absolute('md_class')
         pass
 
-    def validate(self):#, md_path:Path):
+    def validate(self):
         for toml_path in self.root_path.glob('**/*.toml'): # e.g. 'class/kanji/KanjiParam.toml'
             sub_directories = tuple(str(toml_path.parent.relative_to(self.root_path)).split('/'))
             type_name = toml_path.stem
@@ -24,7 +24,7 @@ class MasterDataValidator:
         toml_name = type_name + '.toml'
         logger.info('validate... : %s' % toml_name)
         data = self.load(sub_directories, toml_name)
-        type_mgr = MasterDataTypeManager()
+        type_mgr = MDTypeManager()
         for dir in sub_directories:
             type_info_list = type_mgr.dict_info[dir]
         data_have_error = list()
@@ -46,11 +46,11 @@ class MasterDataValidator:
         return dict_toml['masterdata']
 
     # type_infoで定義されているfieldとrecordの持つfieldが必要十分か
-    def vaildate_necessary_and_sufficient(self, key:str, record:dict, type_info:MasterDataTypeInfo) -> bool:
+    def vaildate_necessary_and_sufficient(self, key:str, record:dict, type_info:MDTypeInfo) -> bool:
         return self.vaildate_sufficient(key, record, type_info) and self.vaildate_necessary(key, record, type_info)
 
     # type_infoで定義されているfieldがすべてrecordに含まれているか
-    def vaildate_sufficient(self, key:str, record:dict, type_info:MasterDataTypeInfo) -> bool:
+    def vaildate_sufficient(self, key:str, record:dict, type_info:MDTypeInfo) -> bool:
         lack_fields = list()
         for necessary_field in type_info.fields:
             if not necessary_field in record:
@@ -62,7 +62,7 @@ class MasterDataValidator:
         return len(lack_fields) == 0
 
     # recordに入稿されているfieldがすべてtype_infoに含まれているか
-    def vaildate_necessary(self, key:str, record:dict, type_info:MasterDataTypeInfo) -> bool:
+    def vaildate_necessary(self, key:str, record:dict, type_info:MDTypeInfo) -> bool:
         unnecessary_fields = list()
         for exist_field in record:
             if not exist_field in type_info.fields:
@@ -76,6 +76,6 @@ class MasterDataValidator:
 
 if __name__ == "__main__":
     basicConfig(level=INFO)
-    validator = MasterDataValidator()
+    validator = MDValidator()
     validator.validate()
 

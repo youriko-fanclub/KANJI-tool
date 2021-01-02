@@ -6,7 +6,6 @@ from repository_path import KanjiPath
 from logging import getLogger, basicConfig, DEBUG
 logger = getLogger(__name__)
 
-
 class MDField:
     TYPE_DICT = { 'string': 's3d::String'}
     HEAVY_OBJECT = [ 'string' ]
@@ -24,6 +23,8 @@ class MDField:
                 self.is_primary_key = True
         self.raw_type, self.pass_type = self.read_types()
 
+    # 型情報はtoml上では属性と一体化したただの文字列なので解析する
+    # 返り値の場合はconst&付けたりもする
     def read_types(self) -> (str, str):
         # メンバ変数の型
         if self.is_id:
@@ -41,7 +42,7 @@ class MDField:
         return (raw_type, pass_type)
 
 
-class MasterDataTypeInfo:
+class MDTypeInfo:
     def __init__(self, toml:dict):
         self.data_type_name = toml['data_type_name']
         self.primary_key = None
@@ -74,8 +75,8 @@ class MasterDataTypeInfo:
             print('%s%s %s%s' % (primary_icon, field.type_name, field.name, constraint))
         print('// --------------------')
 
-
-class MasterDataTypeManager:
+# masterdata.toml全体を読み込み型情報に変換する
+class MDTypeManager:
     def __init__(self):
         self.dict_toml = None
         self.dict_info = dict()
@@ -90,14 +91,14 @@ class MasterDataTypeManager:
         for key in self.dict_toml['masterdata']:
             self.dict_info[key] = dict()
             for md_toml in self.dict_toml['masterdata'][key].values():
-                md = MasterDataTypeInfo(md_toml)
+                md = MDTypeInfo(md_toml)
                 self.dict_info[key][md.data_type_name] = md
 
-    def at(self, type_name:str, key:str) -> MasterDataTypeInfo:
+    def at(self, type_name:str, key:str) -> MDTypeInfo:
         return self.dict_info[key][type_name]
 
 
 if __name__ == "__main__":
     basicConfig(level=DEBUG)
-    mgr = MasterDataTypeManager()
+    mgr = MDTypeManager()
 
