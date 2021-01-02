@@ -65,11 +65,12 @@ class DataHppGenerator(CppSourceGeneratorBase):
         ctor_declaration = self.indent + 'Master%s(' % data_type_name
         ctor_definition = ''
         for field in field_dict.values():
-            field_type, pass_type = field.read_types()
+            raw_type = field.raw_type
+            pass_type = field.pass_type
             # e.g. const s3d::String& label() const { return m_label; }
             getters += self.indent + '%s %s() const { return m_%s; }\n' % (pass_type, self.to_camel_case(field.name), field.name)
             # e.g. s3d::String m_label;
-            fields  += self.indent + '%s m_%s;\n' % (field_type, field.name)
+            fields  += self.indent + '%s m_%s;\n' % (raw_type, field.name)
             # e.g. MasterHoge(const s3d::String& label, ... ):
             ctor_declaration += '%s %s, ' % (pass_type, field.name)
             # e.g. m_label(label), ... {}
@@ -108,14 +109,11 @@ class RepositoryHppGenerator(CppSourceGeneratorBase):
         primary_key_type = None
         for field in field_dict.values():
             if field.is_primary_key:
-                if field.is_id:
-                    primary_key_type = field.type_name + 'ID'
-                else:
-                    primary_key_type = field.type_name
+                primary_key_type = field.raw_type
         self.class_body  = 'class Master%sRepository :\n' % data_type_name
-        self.class_body += self.indent + 'public dx::md::MasterDataRepository<%s, %s>,\n' % (primary_key_type, data_type_name)
+        self.class_body += self.indent + 'public dx::md::MasterDataRepository<%s, Master%s>,\n' % (primary_key_type, data_type_name)
         self.class_body += self.indent + 'public dx::cmp::Singleton<Master%sRepository> {\n' % data_type_name
-        self.class_body += 'protected function: // protected function\n'
+        self.class_body += 'protected: // protected function\n'
         self.class_body += self.indent + 'void initialize();\n'
         self.class_body += 'public: // ctor\n'
         self.class_body += self.indent + 'Master%sRepository() { initialize(); }\n' % data_type_name
@@ -124,30 +122,33 @@ class RepositoryHppGenerator(CppSourceGeneratorBase):
 
 class RepositoryCppGenerator(CppSourceGeneratorBase):
     def generate_preprocessor(self, data_type_name:str, fields:dict):
-        need_ids_hpp = False
-        for field in fields.values():
-            if field.is_id:
-                need_ids_hpp = True
-        self.preprocessor  = '#pragma once\n'
-        self.preprocessor += '#include "Singleton.hpp"\n'
-        self.preprocessor += '#include "MasterDataRepository.hpp"\n'
-        self.preprocessor += '#include "Master%s.hpp"\n' % data_type_name
-        if need_ids_hpp:
-            self.preprocessor += '#include "IDs.hpp"\n'
+        self.preprocessor  = '#include "Master%sRepository.hpp"\n' % data_type_name
+        self.preprocessor += '#include "HotReloadManager.hpp"\n'
 
     def generate_class_body(self, data_type_name:str, field_dict:dict):
-        primary_key_type = None
+        primary_key = None
         for field in field_dict.values():
             if field.is_primary_key:
-                if field.is_id:
-                    primary_key_type = field.type_name + 'ID'
-                else:
-                    primary_key_type = field.type_name
-        self.class_body  = 'class Master%sRepository :\n' % data_type_name
-        self.class_body += self.indent + 'public dx::md::MasterDataRepository<%s, %s>,\n' % (primary_key_type, data_type_name)
-        self.class_body += self.indent + 'public dx::cmp::Singleton<Master%sRepository> {\n' % data_type_name
-        self.class_body += 'protected function: // protected function\n'
-        self.class_body += self.indent + 'void initialize();\n'
-        self.class_body += 'public: // ctor\n'
-        self.class_body += self.indent + 'Master%sRepository() { initialize(); }\n' % data_type_name
-        self.class_body += '};\n'
+                primary_key = field
+        sub_directories = ('kanji', )
+        self.class_body  = 'void Master%sRepository::initialize() {\n' % data_type_name
+        self.class_body += self.indent + 'const auto& param = dx::cmp::HotReloadManager::createParamsWithLoad(U"masterdata/%s/%s");\n' % ('/'.join(sub_directories), data_type_name)
+        self.class_body += self.indent + 'const s3d::String key = U"masterdata";\n'
+        self.class_body += self.indent + 's3d::TOMLTableView table = param->getTOML(key).tableView();\n'
+        self.class_body += self.indent + 'for (const s3d::TOMLTableMember& table_member : table) {\n'
+        self.class_body += self.indent * 2 + 'const auto& toml = table_member.value;\n'
+        # 主キー
+        self.class_body += self.indent * 2 + 'm_data.insert(std::make_pair(%s(toml[U"%s"].get<int>()),\n' % (primary_key.raw_type, primary_key.name)
+        self.class_body += self.indent * 3 + 'std::make_unique<kanji::md::Master%s>(\n' % data_type_name
+        # メンバ変数
+        fields_str = ''
+        for field in field_dict.values():
+            if field.is_id:
+                fields_str += self.indent * 4 + '%s(toml[U"%s"].get<int>()),\n' % (field.raw_type, field.name)
+            else:
+                fields_str += self.indent * 4 + 'toml[U"%s"].get<%s>(),\n' % (field.name, field.raw_type)
+        fields_str = fields_str.rstrip(',\n') + ')));\n'
+        self.class_body += fields_str
+        self.class_body += self.indent + '}\n'
+        self.class_body += '}\n'
+
