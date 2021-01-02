@@ -28,17 +28,17 @@ def create_cpp_sources_impl(type_info:MasterDataTypeInfo, path:Path, key:str):
     create_cpp_source(
         DataHppGenerator(indent),
         type_info,
-        path / 'class' / key / (type_info.data_type_name + '.hpp'))
+        path / 'class' / key / ('Master%s.hpp' % type_info.data_type_name))
     # MasterHogeRepository.hpp
     create_cpp_source(
         RepositoryHppGenerator(indent),
         type_info,
-        path / 'repository' / key / (type_info.data_type_name + 'Repository.hpp'))
+        path / 'repository' / key / ('Master%sRepository.hpp' % type_info.data_type_name))
     # MasterHogeRepository.cpp
     create_cpp_source(
         RepositoryCppGenerator(indent),
         type_info,
-        path / 'repository' / key / (type_info.data_type_name + 'Repository.cpp'))
+        path / 'repository' / key / ('Master%sRepository.cpp' % type_info.data_type_name))
 
 def create_cpp_sources(mgr:MasterDataTypeManager, path_dst:Path):
     for key in mgr.dict_info:
