@@ -22,22 +22,23 @@ class MDField:
                 self.is_id = True
             if attribute == 'PKey':
                 self.is_primary_key = True
+        self.raw_type, self.pass_type = self.read_types()
 
     def read_types(self) -> (str, str):
         # メンバ変数の型
         if self.is_id:
-            field_type = self.type_name + 'ID'
+            raw_type = self.type_name + 'ID'
         else:
             if self.type_name in MDField.TYPE_DICT:
-                field_type = MDField.TYPE_DICT[self.type_name]
+                raw_type = MDField.TYPE_DICT[self.type_name]
             else:
-                field_type = self.type_name
+                raw_type = self.type_name
         # 引数/返り値の型
         if self.type_name in MDField.HEAVY_OBJECT:
-            pass_type = 'const %s&' % field_type
+            pass_type = 'const %s&' % raw_type
         else:
-            pass_type = field_type
-        return (field_type, pass_type)
+            pass_type = raw_type
+        return (raw_type, pass_type)
 
 
 class MasterDataTypeInfo:
