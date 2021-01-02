@@ -2,6 +2,7 @@
 #coding:utf-8
 
 from pathlib import Path
+import sys
 import os
 import shutil
 import toml
@@ -10,6 +11,8 @@ from cpp_source_generator import DataHppGenerator, RepositoryHppGenerator, Repos
 from master_type import MasterDataTypeInfo, MasterDataTypeManager
 from logging import getLogger, basicConfig, DEBUG, INFO
 logger = getLogger(__name__)
+
+IS_DEBUG = False
 
 def output(file_path:Path, text:str):
     os.makedirs(file_path.parent.absolute(), exist_ok=True)
@@ -20,7 +23,11 @@ def output(file_path:Path, text:str):
 
 def create_cpp_source(generator, type_info:MasterDataTypeInfo, file_path:Path):
     full_text = generator.generate(type_info.data_type_name, type_info.fields)
-    output(file_path, full_text)
+    if IS_DEBUG:
+        print('// %s ------------------------------------------' % file_path.name)
+        print(full_text)
+    else:
+        output(file_path, full_text)
 
 def create_cpp_sources_impl(type_info:MasterDataTypeInfo, path:Path, key:str):
     indent = '    '
@@ -47,8 +54,11 @@ def create_cpp_sources(mgr:MasterDataTypeManager, path_dst:Path):
 
 if __name__ == "__main__":
     basicConfig(level=INFO)
+    args = sys.argv
+    IS_DEBUG = len(args) > 1 and args[1] == 'debug'
+
     dest_dir = KanjiPath.absolute('md_header')
-    if os.path.isdir(dest_dir):
+    if not IS_DEBUG and os.path.isdir(dest_dir):
         shutil.rmtree(dest_dir)
     mgr = MasterDataTypeManager()
     # mgr.create_cpp_source(dest_dir)
