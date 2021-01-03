@@ -125,7 +125,7 @@ class RepositoryHppGenerator(CppSourceGeneratorBase):
 class RepositoryCppGenerator(CppSourceGeneratorBase):
     def generate_preprocessor(self, data_type_name:str, fields:dict):
         self.preprocessor  = '#include "Master%sRepository.hpp"\n' % data_type_name
-        self.preprocessor += '#include "HotReloadManager.hpp"\n'
+        self.preprocessor += '#include "TomlAsset.hpp"\n'
 
     def generate_class_body(self, data_type_name:str, field_dict:dict):
         primary_key = None
@@ -133,21 +133,21 @@ class RepositoryCppGenerator(CppSourceGeneratorBase):
             if field.is_primary_key:
                 primary_key = field
         self.class_body  = 'void Master%sRepository::initialize() {\n' % data_type_name
-        self.class_body += self.indent + 'const auto& param = dx::cmp::HotReloadManager::createParamsWithLoad(U"%s", true, true);\n' % (data_type_name)
-        self.class_body += self.indent + 'const s3d::String key = U"masterdata";\n'
-        self.class_body += self.indent + 's3d::TOMLTableView table = param->getTOML(key).tableView();\n'
+        self.class_body += self.indent + 'const dx::cmp::TomlAsset toml(U"%s");\n' % (data_type_name)
+        self.class_body += self.indent + 'const dx::cmp::TomlKey key(U"masterdata");\n'
+        self.class_body += self.indent + 's3d::TOMLTableView table = toml[key].tableView();\n'
         self.class_body += self.indent + 'for (const s3d::TOMLTableMember& table_member : table) {\n'
-        self.class_body += self.indent * 2 + 'const auto& toml = table_member.value;\n'
+        self.class_body += self.indent * 2 + 'const auto& toml_value = table_member.value;\n'
         # 主キー
-        self.class_body += self.indent * 2 + 'm_data.insert(std::make_pair(%s(toml[U"%s"].get<int>()),\n' % (primary_key.raw_type, primary_key.name)
+        self.class_body += self.indent * 2 + 'm_data.insert(std::make_pair(%s(toml_value[U"%s"].get<int>()),\n' % (primary_key.raw_type, primary_key.name)
         self.class_body += self.indent * 3 + 'std::make_unique<kanji::md::Master%s>(\n' % data_type_name
         # メンバ変数
         fields_str = ''
         for field in field_dict.values():
             if field.is_id:
-                fields_str += self.indent * 4 + '%s(toml[U"%s"].get<int>()),\n' % (field.raw_type, field.name)
+                fields_str += self.indent * 4 + '%s(toml_value[U"%s"].get<int>()),\n' % (field.raw_type, field.name)
             else:
-                fields_str += self.indent * 4 + 'toml[U"%s"].get<%s>(),\n' % (field.name, field.raw_type)
+                fields_str += self.indent * 4 + 'toml_value[U"%s"].get<%s>(),\n' % (field.name, field.raw_type)
         fields_str = fields_str.rstrip(',\n') + ')));\n'
         self.class_body += fields_str
         self.class_body += self.indent + '}\n'
