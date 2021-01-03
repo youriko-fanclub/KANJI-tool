@@ -133,8 +133,8 @@ class RepositoryCppGenerator(CppSourceGeneratorBase):
             if field.is_primary_key:
                 primary_key = field
         self.class_body  = 'void Master%sRepository::initialize() {\n' % data_type_name
-        self.class_body += self.indent + 'const dx::cmp::TomlAsset toml(U"%s");\n' % (data_type_name)
-        self.class_body += self.indent + 'const dx::cmp::TomlKey key(U"masterdata");\n'
+        self.class_body += self.indent + 'const dx::toml::TomlAsset toml(U"%s");\n' % (data_type_name)
+        self.class_body += self.indent + 'const dx::toml::TomlKey key(U"masterdata");\n'
         self.class_body += self.indent + 's3d::TOMLTableView table = toml[key].tableView();\n'
         self.class_body += self.indent + 'for (const s3d::TOMLTableMember& table_member : table) {\n'
         self.class_body += self.indent * 2 + 'const auto& toml_value = table_member.value;\n'
