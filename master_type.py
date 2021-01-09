@@ -8,11 +8,11 @@ logger = getLogger(__name__)
 import pprint
 
 class MDField:
+    VALID_TYPE_NAMES = ( 'int', 'float', 'double', 'string', 'Vec2' )
     TYPE_DICT = { 'string': 's3d::String' }
     HEAVY_OBJECT = [ 'string' ]
 
     def __init__(self, name:str, type_attribute:str):
-        print('name: %s, attr:%s' % (name, type_attribute))
         self.name = name
         type_name, *attributes = type_attribute.split(':')
         self.type_name = type_name
@@ -23,6 +23,9 @@ class MDField:
                 self.is_id = True
             if attribute == 'PKey':
                 self.is_primary_key = True
+        if not self.is_id:
+            if not self.type_name in MDField.VALID_TYPE_NAMES:
+                logger.critical('There is invalid type name: %s' % self.type_name)
         self.raw_type, self.pass_type = self.read_types()
 
     # 型情報はtoml上では属性と一体化したただの文字列なので解析する
@@ -92,10 +95,8 @@ class MDTypeManager:
 
     def read(self, dict_toml:dict, parent_keys:str):
         for key in dict_toml:
-            print('%s::%s' % (parent_keys, key))
             if key.startswith('md_'):
                 md = MDTypeInfo(dict_toml[key])
-                print('%s::%s' % (parent_keys, md.data_type_name))
                 if len(parent_keys) == 0:
                     self.dict_info[md.data_type_name] = md
                 else:
