@@ -5,12 +5,14 @@ import toml
 from repository_path import KanjiPath
 from logging import getLogger, basicConfig, DEBUG
 logger = getLogger(__name__)
+import pprint
 
 class MDField:
-    TYPE_DICT = { 'string': 's3d::String'}
+    TYPE_DICT = { 'string': 's3d::String' }
     HEAVY_OBJECT = [ 'string' ]
 
     def __init__(self, name:str, type_attribute:str):
+        print('name: %s, attr:%s' % (name, type_attribute))
         self.name = name
         type_name, *attributes = type_attribute.split(':')
         self.type_name = type_name
@@ -81,18 +83,33 @@ class MDTypeManager:
         self.dict_toml = None
         self.dict_info = dict()
         self.load()
-        self.read()
+        self.read(self.dict_toml['masterdata'], '')
+        pprint.pprint(self.dict_info)
 
     def load(self):
         with open(KanjiPath.absolute('md_toml')) as f:
             self.dict_toml = toml.load(f)
 
-    def read(self):
-        for key in self.dict_toml['masterdata']:
-            self.dict_info[key] = dict()
-            for md_toml in self.dict_toml['masterdata'][key].values():
-                md = MDTypeInfo(md_toml)
-                self.dict_info[key][md.data_type_name] = md
+    def read(self, dict_toml:dict, parent_keys:str):
+        for key in dict_toml:
+            print('%s::%s' % (parent_keys, key))
+            if key.startswith('md_'):
+                md = MDTypeInfo(dict_toml[key])
+                print('%s::%s' % (parent_keys, md.data_type_name))
+                if len(parent_keys) == 0:
+                    self.dict_info[md.data_type_name] = md
+                else:
+                    self.dict_info[parent_keys][md.data_type_name] = md
+            else:
+                fullkey = self.fullkey(key, parent_keys)
+                self.dict_info[fullkey] = dict()
+                self.read(dict_toml[key], fullkey)
+
+    def fullkey(self, key:str, parent_keys:str):
+        if len(parent_keys) == 0:
+            return key
+        else:
+            return '%s/%s' % (parent_keys, key)
 
     def at(self, type_name:str, key:str) -> MDTypeInfo:
         return self.dict_info[key][type_name]
