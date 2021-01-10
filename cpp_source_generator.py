@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #coding:utf-8
 
+from master_type import MDTypeInfo
 
 class CppSourceGeneratorBase:
     def __init__(self, indent:str):
@@ -13,10 +14,10 @@ class CppSourceGeneratorBase:
 
     # 5つに分けて生成し、最後に結合する
     # 分けた5つのうちファイルごとに異なる部分はサブクラスでオーバーライド
-    def generate(self, data_type_name:str, fields:dict) -> str:
-        self.generate_class_body(data_type_name, fields)
-        self.generate_build_info(data_type_name)
-        self.generate_preprocessor(data_type_name, fields)
+    def generate(self, md_type_info:MDTypeInfo) -> str:
+        self.generate_class_body(md_type_info.data_type_name, md_type_info.fields)
+        self.generate_build_info(md_type_info.data_type_name)
+        self.generate_preprocessor(md_type_info)
         self.generate_namespace_begin()
         self.generate_namespace_end()
         return self.concatenate()
@@ -32,7 +33,7 @@ class CppSourceGeneratorBase:
     def generate_build_info(self, data_type_name:str):
         self.build_info = '// This file is generated from %s.toml\n' % data_type_name
 
-    def generate_preprocessor(self, data_type_name:str, fields:dict):
+    def generate_preprocessor(self, md_type_info:MDTypeInfo):
         pass
 
     def generate_namespace_begin(self):
@@ -52,14 +53,16 @@ class CppSourceGeneratorBase:
 
 
 class DataHppGenerator(CppSourceGeneratorBase):
-    def generate_preprocessor(self, data_type_name:str, fields:dict):
+    def generate_preprocessor(self, md_type_info:MDTypeInfo):
         need_ids_hpp = False
-        for field in fields.values():
+        for field in md_type_info.fields.values():
             if field.is_id:
                 need_ids_hpp = True
         self.preprocessor = '#pragma once\n'
         if need_ids_hpp:
             self.preprocessor += '#include "IDs.hpp"\n'
+        for include_file in md_type_info.include_files():
+            self.preprocessor += '#include %s\n' % include_file
 
     def generate_class_body(self, data_type_name:str, field_dict:dict):
         getters = ''
@@ -95,15 +98,15 @@ class DataHppGenerator(CppSourceGeneratorBase):
 
 
 class RepositoryHppGenerator(CppSourceGeneratorBase):
-    def generate_preprocessor(self, data_type_name:str, fields:dict):
+    def generate_preprocessor(self, md_type_info:MDTypeInfo):
         need_ids_hpp = False
-        for field in fields.values():
+        for field in md_type_info.fields.values():
             if field.is_id:
                 need_ids_hpp = True
         self.preprocessor  = '#pragma once\n'
         self.preprocessor += '#include "Singleton.hpp"\n'
         self.preprocessor += '#include "MasterDataRepository.hpp"\n'
-        self.preprocessor += '#include "Master%s.hpp"\n' % data_type_name
+        self.preprocessor += '#include "Master%s.hpp"\n' % md_type_info.data_type_name
         if need_ids_hpp:
             self.preprocessor += '#include "IDs.hpp"\n'
 
@@ -123,8 +126,10 @@ class RepositoryHppGenerator(CppSourceGeneratorBase):
 
 
 class RepositoryCppGenerator(CppSourceGeneratorBase):
-    def generate_preprocessor(self, data_type_name:str, fields:dict):
-        self.preprocessor  = '#include "Master%sRepository.hpp"\n' % data_type_name
+    CLASS_TYPE = {'Vec2': 'vec2'}
+
+    def generate_preprocessor(self, md_type_info:MDTypeInfo):
+        self.preprocessor  = '#include "Master%sRepository.hpp"\n' % md_type_info.data_type_name
         self.preprocessor += '#include "TomlAsset.hpp"\n'
 
     def generate_class_body(self, data_type_name:str, field_dict:dict):
@@ -146,6 +151,8 @@ class RepositoryCppGenerator(CppSourceGeneratorBase):
         for field in field_dict.values():
             if field.is_id:
                 fields_str += self.indent * 4 + '%s(toml_value[U"%s"].get<int>()),\n' % (field.raw_type, field.name)
+            elif field.type_name in RepositoryCppGenerator.CLASS_TYPE:
+                fields_str += self.indent * 4 + 'dx::toml::%s(toml_value[U"%s"]),\n' % (RepositoryCppGenerator.CLASS_TYPE[field.type_name], field.name)
             else:
                 fields_str += self.indent * 4 + 'toml_value[U"%s"].get<%s>(),\n' % (field.name, field.raw_type)
         fields_str = fields_str.rstrip(',\n') + ')));\n'

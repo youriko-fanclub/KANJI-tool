@@ -8,9 +8,9 @@ logger = getLogger(__name__)
 import pprint
 
 class MDField:
-    VALID_TYPE_NAMES = ( 'int', 'float', 'double', 'string', 'Vec2' )
-    TYPE_DICT = { 'string': 's3d::String' }
-    HEAVY_OBJECT = [ 'string' ]
+    VALID_TYPE_NAMES = ('int', 'float', 'double', 'string', 'Vec2')
+    TYPE_DICT = {'string': 's3d::String', 'Vec2': 's3d::Vec2'}
+    HEAVY_OBJECT = ('string', 'Vec2')
 
     def __init__(self, name:str, type_attribute:str):
         self.name = name
@@ -48,9 +48,12 @@ class MDField:
 
 
 class MDTypeInfo:
+    INCLUDE = {'Vec2': '<Siv3D/Vector2D.hpp>'}
+
     def __init__(self, toml:dict):
         self.data_type_name = toml['data_type_name']
         self.primary_key = None
+        self.types_requires_include = list()
         self.fields = self.read_fields(toml['field'])
 
     def read_fields(self, field_toml:dict) -> dict:
@@ -62,9 +65,17 @@ class MDTypeInfo:
                 if self.primary_key != None:
                     logger.critical('There are multiple primary keys.')
                 self.primary_key = field.name
+            if field.type_name in MDTypeInfo.INCLUDE and not field.type_name in self.types_requires_include:
+                self.types_requires_include.append(field.type_name)
         if self.primary_key == None:
             logger.critical('There is no primary key.')
         return fields
+
+    def include_files(self):
+        include_files = list()
+        for type_name in self.types_requires_include:
+            include_files.append(MDTypeInfo.INCLUDE[type_name])
+        return include_files
 
     def log(self):
         print('// %s --------------------' % self.data_type_name)
@@ -82,9 +93,11 @@ class MDTypeInfo:
 
 # masterdata.toml全体を読み込み型情報に変換する
 class MDTypeManager:
+    ROOT = 'root'
     def __init__(self):
         self.dict_toml = None
         self.dict_info = dict()
+        self.dict_info[MDTypeManager.ROOT] = dict()
         self.load()
         self.read(self.dict_toml['masterdata'], '')
         pprint.pprint(self.dict_info)
@@ -98,7 +111,7 @@ class MDTypeManager:
             if key.startswith('md_'):
                 md = MDTypeInfo(dict_toml[key])
                 if len(parent_keys) == 0:
-                    self.dict_info[md.data_type_name] = md
+                    self.dict_info[MDTypeManager.ROOT][md.data_type_name] = md
                 else:
                     self.dict_info[parent_keys][md.data_type_name] = md
             else:

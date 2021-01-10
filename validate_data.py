@@ -26,7 +26,7 @@ class MDValidator:
         data = self.load(sub_directories, toml_name)
         for dir in sub_directories:
             if dir == '.':
-                type_info_list = self.type_mgr.dict_info
+                type_info_list = self.type_mgr.dict_info[MDTypeManager.ROOT]
             else:
                 type_info_list = self.type_mgr.dict_info[dir]
         data_have_error = list()
