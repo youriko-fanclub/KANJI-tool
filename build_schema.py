@@ -24,7 +24,7 @@ def output(file_path:Path, text:str):
 # hpp/cpp内容を生成して書き込む
 # IS_DEBUG 時は書き込まずにprintする
 def create_cpp_source(generator, type_info:MDTypeInfo, file_path:Path):
-    full_text = generator.generate(type_info.data_type_name, type_info.fields)
+    full_text = generator.generate(type_info)
     if IS_DEBUG:
         print('// %s ------------------------------------------' % file_path.name)
         print(full_text)
@@ -35,6 +35,8 @@ def create_cpp_source(generator, type_info:MDTypeInfo, file_path:Path):
 # MasterData自体のhpp、Repositoryのhpp/cppがあるので3ファイルを生成
 def create_cpp_sources_impl(type_info:MDTypeInfo, path:Path, key:str):
     indent = '    '
+    if key == MDTypeManager.ROOT:
+        key = ''
     # MasterHoge.hpp
     create_cpp_source(
         DataHppGenerator(indent),

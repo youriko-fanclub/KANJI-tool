@@ -12,7 +12,7 @@ logger = getLogger(__name__)
 class MDValidator:
     def __init__(self):
         self.root_path = KanjiPath.absolute('md_class')
-        pass
+        self.type_mgr = MDTypeManager()
 
     def validate(self):
         for toml_path in self.root_path.glob('**/*.toml'): # e.g. 'class/kanji/KanjiParam.toml'
@@ -22,11 +22,13 @@ class MDValidator:
 
     def validate_toml(self, sub_directories:tuple, type_name:str):
         toml_name = type_name + '.toml'
-        logger.info('validate... : %s' % toml_name)
+        logger.info('validate... : %s (%s)' % (toml_name, '/'.join(sub_directories)))
         data = self.load(sub_directories, toml_name)
-        type_mgr = MDTypeManager()
         for dir in sub_directories:
-            type_info_list = type_mgr.dict_info[dir]
+            if dir == '.':
+                type_info_list = self.type_mgr.dict_info[MDTypeManager.ROOT]
+            else:
+                type_info_list = self.type_mgr.dict_info[dir]
         data_have_error = list()
         for key in data: # key = yama, tera, ...
             record = data[key] # e.g. { 'id': 0, 'character': '山', ...}
