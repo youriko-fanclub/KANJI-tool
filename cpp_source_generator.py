@@ -144,8 +144,8 @@ class RepositoryCppGenerator(CppSourceGeneratorBase):
         self.class_body += self.indent + 'for (const s3d::TOMLTableMember& table_member : table) {\n'
         self.class_body += self.indent * 2 + 'const auto& toml_value = table_member.value;\n'
         # 主キー
-        self.class_body += self.indent * 2 + 'm_data.insert(std::make_pair(%s(toml_value[U"%s"].get<int>()),\n' % (primary_key.raw_type, primary_key.name)
-        self.class_body += self.indent * 3 + 'std::make_unique<kanji::md::Master%s>(\n' % data_type_name
+        self.class_body += self.indent * 2 + 'm_data.emplace(%s(toml_value[U"%s"].get<int>()),\n' % (primary_key.raw_type, primary_key.name)
+        self.class_body += self.indent * 3 + 'std::make_shared<kanji::md::Master%s>(\n' % data_type_name
         # メンバ変数
         fields_str = ''
         for field in field_dict.values():
@@ -155,7 +155,7 @@ class RepositoryCppGenerator(CppSourceGeneratorBase):
                 fields_str += self.indent * 4 + 'dx::toml::%s(toml_value[U"%s"]),\n' % (RepositoryCppGenerator.CLASS_TYPE[field.type_name], field.name)
             else:
                 fields_str += self.indent * 4 + 'toml_value[U"%s"].get<%s>(),\n' % (field.name, field.raw_type)
-        fields_str = fields_str.rstrip(',\n') + ')));\n'
+        fields_str = fields_str.rstrip(',\n') + '));\n'
         self.class_body += fields_str
         self.class_body += self.indent + '}\n'
         self.class_body += '}\n'
